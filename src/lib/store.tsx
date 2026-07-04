@@ -57,7 +57,7 @@ interface AppContextValue {
   addComment: (target: CommentTarget, postId: string, text: string) => void;
   addResource: (projectId: string, name: string, url: string) => void;
   createProject: (input: NewProjectInput) => Promise<void>;
-  editProject: (id: string, patch: Partial<Project>) => void;
+  editProject: (id: string, patch: Partial<Project>) => Promise<void>;
   toggleProjectArchive: (id: string) => void;
   addPerson: (name: string) => void;
   editPerson: (id: string, name: string) => void;
@@ -280,8 +280,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const editProject = (id: string, patch: Partial<Project>) => {
-    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  const editProject = async (id: string, patch: Partial<Project>) => {
+    const currentProject = projects.find((project) => project.id === id);
+    if (!currentProject) return;
+
+    const mergedProject = {
+      ...currentProject,
+      ...patch,
+    };
+
+    try {
+      const response = await project("edit", {
+        id,
+        name: mergedProject.name,
+        description: mergedProject.description,
+        startDate: mergedProject.startDate,
+        targetEndDate: mergedProject.targetEndDate,
+      });
+
+      if (response.success === true && response.project) {
+        setProjects((prev) => prev.map((project) => (project.id === id ? response.project : project)));
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const toggleProjectArchive = (id: string) => {
