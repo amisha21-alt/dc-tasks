@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
-import { bootstrap } from "./api";
+import { bootstrap, project } from "./api";
 import {
   User,
   Project,
@@ -56,7 +56,7 @@ interface AppContextValue {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   addComment: (target: CommentTarget, postId: string, text: string) => void;
   addResource: (projectId: string, name: string, url: string) => void;
-  createProject: (input: NewProjectInput) => void;
+  createProject: (input: NewProjectInput) => Promise<void>;
   editProject: (id: string, patch: Partial<Project>) => void;
   toggleProjectArchive: (id: string) => void;
   addPerson: (name: string) => void;
@@ -260,22 +260,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const createProject = ({ name, description, startDate, targetEndDate }: NewProjectInput) => {
+  const createProject = async ({ name, description, startDate, targetEndDate }: NewProjectInput) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    setProjects((prev) => [
-      ...prev,
-      {
-        id: genId("p"),
+
+    try {
+      const response = await project("create", {
         name: trimmed,
         description: description.trim(),
         startDate: startDate.trim() || "Unscheduled",
         targetEndDate: targetEndDate.trim() || "Unscheduled",
-        status: "Active",
-        resources: [],
-        timeline: [],
-      },
-    ]);
+      });
+
+      if (response.success === true && response.project) {
+        setProjects((prev) => [...prev, response.project]);
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const editProject = (id: string, patch: Partial<Project>) => {
